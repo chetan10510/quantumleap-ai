@@ -7,18 +7,22 @@ export default function ChatWindow() {
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  // auto-scroll reference
   const bottomRef = useRef(null);
 
-  // auto-scroll whenever messages or loading changes
+  /* =====================================================
+     AUTO SCROLL
+  ===================================================== */
   useEffect(() => {
     bottomRef.current?.scrollIntoView({
       behavior: "smooth",
     });
   }, [messages, loading]);
 
+  /* =====================================================
+     SAFE CHAT SEND (NORMALIZED API CONTRACT)
+  ===================================================== */
   const handleSend = async (text) => {
-    if (!text.trim()) return;
+    if (!text || !text.trim()) return;
 
     const userMsg = {
       role: "user",
@@ -32,17 +36,34 @@ export default function ChatWindow() {
     try {
       const data = await sendMessage(text);
 
+      /* ---------- HARD NORMALIZATION LAYER ---------- */
+
+      const safeAnswer =
+        typeof data?.answer === "string" &&
+        data.answer.trim().length > 0
+          ? data.answer
+          : "No grounded answer could be generated from the documents.";
+
+      const safeSources = Array.isArray(data?.sources)
+        ? data.sources
+        : [];
+
+      const safeConfidence =
+        typeof data?.confidence === "number"
+          ? data.confidence
+          : 0.3;
+
       const aiMsg = {
         role: "assistant",
-        content: data.answer,
-        sources: data.sources || [],
-        confidence: data.confidence ?? 0,
+        content: safeAnswer,
+        sources: safeSources,
+        confidence: safeConfidence,
       };
 
-
       setMessages((prev) => [...prev, aiMsg]);
+
     } catch (error) {
-      console.error(error);
+      console.error("CHAT ERROR:", error);
 
       setMessages((prev) => [
         ...prev,
@@ -50,17 +71,22 @@ export default function ChatWindow() {
           role: "assistant",
           content:
             "Sorry, something went wrong while contacting the AI service.",
+          sources: [],
+          confidence: 0,
         },
       ]);
+    } finally {
+      setLoading(false);
     }
-
-    setLoading(false);
   };
 
+  /* =====================================================
+     UI
+  ===================================================== */
   return (
     <div className="flex flex-col h-full">
 
-      {/* CHAT AREA */}
+      {/* ================= CHAT AREA ================= */}
       <div
         className="
           flex-1 overflow-y-auto
@@ -71,7 +97,6 @@ export default function ChatWindow() {
           to-slate-100
         "
       >
-
         {/* EMPTY STATE */}
         {messages.length === 0 && (
           <div className="text-center text-gray-500 mt-20">
@@ -89,7 +114,7 @@ export default function ChatWindow() {
           <ChatMessage key={i} msg={msg} />
         ))}
 
-        {/* AI THINKING INDICATOR */}
+        {/* THINKING INDICATOR */}
         {loading && (
           <div className="flex items-center gap-2 text-slate-500">
             <span className="w-2 h-2 bg-indigo-500 rounded-full animate-bounce"></span>
@@ -103,10 +128,9 @@ export default function ChatWindow() {
 
         {/* AUTO SCROLL ANCHOR */}
         <div ref={bottomRef} />
-
       </div>
 
-      {/* INPUT */}
+      {/* ================= INPUT ================= */}
       <ChatInput onSend={handleSend} loading={loading} />
     </div>
   );

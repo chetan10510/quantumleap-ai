@@ -142,10 +142,12 @@ export default function ChatMessage({ msg }) {
                   {msg.sources.map((s, i) => {
                     /*  CRITICAL FIX */
                     const snippet =
-                      s.text ||
-                      s.snippet ||
-                      s.chunk ||
-                      "";
+                      typeof s.text === "string"
+                        ? s.text
+                        : typeof s.snippet === "string"
+                        ? s.snippet
+                        : "";
+
 
                     return (
                       <div

@@ -12,17 +12,19 @@ export default function DocumentSidebar() {
 
   // ---------- LOAD DOCUMENTS ----------
   const loadDocs = async () => {
-    try {
-      const res = await getDocuments();
-      setDocs(res.documents || []);
-    } catch (err) {
-      console.error("Failed loading documents", err);
+  try {
+    const res = await getDocuments();
+
+    const docsArray = Array.isArray(res?.documents)
+      ? res.documents
+      : [];
+
+    setDocs(docsArray);
+  } catch (err) {
+    console.error("Failed loading documents", err);
+    setDocs([]);
     }
   };
-
-  useEffect(() => {
-    loadDocs();
-  }, []);
 
   // ---------- UPLOAD ----------
   const handleUpload = async (e) => {
