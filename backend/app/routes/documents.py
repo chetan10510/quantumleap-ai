@@ -7,28 +7,24 @@ router = APIRouter(prefix="/documents", tags=["Documents"])
 
 
 # ---------- LIST DOCUMENTS ----------
-@router.get("/")
-def get_documents():
-    return {
-        "documents": list_documents()
-    }
 
+@router.get("/")
+def get_documents(request: Request):
+    return {
+        "documents": list_documents(request)
+    }
 
 # ---------- DELETE DOCUMENT ----------
 @router.delete("/{doc_id}")
-def delete_document(doc_id: str, request: Request):
+def remove_document(doc_id: str, request: Request):
 
-    user_id = get_user_id(request)
-    user_dir = f"storage/documents/{user_id}"
+    success = delete_document(doc_id, request)
 
-    file_path = os.path.join(user_dir, doc_id)
-
-    if not os.path.exists(file_path):
-        return {"message": "File not found"}
-
-    os.remove(file_path)
+    if not success:
+        raise HTTPException(status_code=404, detail="Document not found")
 
     return {"message": "Document deleted"}
+
 
 @router.get("/")
 def list_documents(request: Request):
