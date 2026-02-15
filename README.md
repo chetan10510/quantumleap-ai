@@ -23,7 +23,7 @@ Backend:
 - Groq LLM API (Llama 3.1)
 
 Hosting:
-- Railway (backend)
+- Railway (backend) + Render(backend - backup)
 - Vercel (frontend)
 
 ## How to Run Locally
