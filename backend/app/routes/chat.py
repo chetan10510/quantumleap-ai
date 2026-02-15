@@ -80,11 +80,24 @@ Question:
 
         answer = completion.choices[0].message.content
 
+        # ---------- FORMAT SOURCES FOR FRONTEND ----------
+        sources = []
+
+        for r in results:
+            sources.append({
+                "document": r.get("document", "Unknown"),
+                "text": r.get("text", ""),   #  evidence snippet
+                "score": float(r.get("score", 0))
+            })
+
+        # ---------- RESPONSE (FRONTEND FORMAT) ----------
         return {
-            "answer": answer,
-            "sources": results,
-            "confidence": "Medium"
+            "role": "assistant",
+            "content": answer,        #  frontend expects content
+            "sources": sources,
+            "confidence": 0.55        # numeric → enables label logic
         }
+
 
     except Exception as e:
         #  CRITICAL: print REAL ERROR to Railway logs
