@@ -4,37 +4,40 @@ import remarkGfm from "remark-gfm";
 /* =====================================================
    EVIDENCE SENTENCE HIGHLIGHTING
 ===================================================== */
-
 function highlightEvidenceSentence(snippet, answer) {
-  // SAFETY GUARDS
-  if (
-    !snippet ||
-    typeof snippet !== "string" ||
-    snippet.trim().length === 0
-  ) {
-    return "No evidence text available.";
+  // ---- HARD SAFETY ----
+  if (!snippet || typeof snippet !== "string") {
+    return "<span class='text-slate-400 italic'>No preview available</span>";
   }
 
-  if (!answer) return snippet;
+  // Clean invisible characters
+  snippet = snippet.replace(/\s+/g, " ").trim();
 
-  // Split into sentences safely
+  if (!snippet.length) {
+    return "<span class='text-slate-400 italic'>No preview available</span>";
+  }
+
+  // Split safely
   const sentences =
-    snippet.match(/[^.!?]+[.!?]+/g) || [snippet];
+    snippet.match(/[^.!?]+[.!?]?/g) || [snippet];
 
-  // Extract keywords from answer
+  if (!answer) {
+    return snippet;
+  }
+
   const keywords = answer
     .toLowerCase()
     .replace(/[^\w\s]/g, "")
     .split(/\s+/)
     .filter((w) => w.length > 3);
 
-  let bestSentence = "";
+  let bestSentence = sentences[0];
   let bestScore = 0;
 
   sentences.forEach((sentence) => {
     const lower = sentence.toLowerCase();
-
     let score = 0;
+
     keywords.forEach((word) => {
       if (lower.includes(word)) score++;
     });
@@ -45,17 +48,15 @@ function highlightEvidenceSentence(snippet, answer) {
     }
   });
 
-  // If nothing matched → return original snippet
-  if (!bestSentence) return snippet;
-
-  // Highlight matched sentence
+  // Highlight safely
   return snippet.replace(
     bestSentence,
     `<mark class="bg-yellow-200 px-1 rounded font-medium">
-      ${bestSentence}
+       ${bestSentence}
      </mark>`
   );
 }
+
 
 /* =====================================================
    CONFIDENCE LABEL
