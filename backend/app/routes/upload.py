@@ -1,23 +1,34 @@
-from fastapi import APIRouter, UploadFile, File, HTTPException
+from fastapi import APIRouter, UploadFile, File, HTTPException, Request
 from typing import List
 from app.documents.manager import save_document
+from app.utils.user import get_user_id
 import os
 
 router = APIRouter(prefix="/upload", tags=["Upload"])
 
-# Allowed file types
 ALLOWED_EXTENSIONS = (".pdf", ".docx", ".xlsx", ".txt", ".md")
 
 
 @router.post("/")
-async def upload_documents(files: List[UploadFile] = File(...)):
+async def upload_documents(
+    request: Request,
+    files: List[UploadFile] = File(...)
+):
     """
-    Upload one or multiple documents.
-    Extraction + chunking + embeddings handled in manager.py
+    Upload documents scoped per user workspace.
     """
 
     if not files:
         raise HTTPException(status_code=400, detail="No files uploaded")
+
+    user_id = get_user_id(request)
+
+    # USER-SPECIFIC STORAGE
+    user_doc_dir = f"storage/documents/{user_id}"
+    user_vector_dir = f"storage/vector_db/{user_id}"
+
+    os.makedirs(user_doc_dir, exist_ok=True)
+    os.makedirs(user_vector_dir, exist_ok=True)
 
     uploaded = []
     rejected = []
@@ -29,13 +40,16 @@ async def upload_documents(files: List[UploadFile] = File(...)):
 
         ext = os.path.splitext(file.filename)[1].lower()
 
-        # ---------- VALIDATION ----------
         if ext not in ALLOWED_EXTENSIONS:
             rejected.append(file.filename)
             continue
 
         try:
-            saved = save_document(file)
+            saved = await save_document(
+                file,
+                documents_path=user_doc_dir,
+                vector_path=user_vector_dir,
+            )
             uploaded.append(saved)
 
         except Exception as e:

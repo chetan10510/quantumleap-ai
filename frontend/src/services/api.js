@@ -1,27 +1,56 @@
 import axios from "axios";
 
+/*
+  Backend URL
+*/
 const API = axios.create({
   baseURL: "https://aggroso-backend.onrender.com",
 });
 
+/*
+  Create persistent device user id
+  Each browser = one workspace
+*/
+const getUserId = () => {
+  let id = localStorage.getItem("user_id");
+
+  if (!id) {
+    id = crypto.randomUUID();
+    localStorage.setItem("user_id", id);
+  }
+
+  return id;
+};
+
+/*
+  Automatically attach user id to every request
+*/
+API.interceptors.request.use((config) => {
+  config.headers["X-User-ID"] = getUserId();
+  return config;
+});
+
+/* ---------------- CHAT ---------------- */
 export const sendMessage = async (message) => {
   const res = await API.post("/chat/", {
-    message: message,
+    message,
   });
-
   return res.data;
 };
 
+/* ---------------- DOCUMENTS ---------------- */
 export const getDocuments = async () => {
   const res = await API.get("/documents/");
   return res.data;
 };
+
+/* ---------------- STATUS ---------------- */
 export const getStatus = async () => {
-  const res = await fetch("http://127.0.0.1:8000/status/");
-  return res.json();
+  const res = await API.get("/status/");
+  return res.data;
 };
 
-
+/* ---------------- UPLOAD ---------------- */
 export const uploadFiles = async (files) => {
   const formData = new FormData();
 
@@ -38,16 +67,8 @@ export const uploadFiles = async (files) => {
   return res.data;
 };
 
+/* ---------------- DELETE ---------------- */
 export const deleteDocument = async (docId) => {
-  const res = await fetch(
-    `http://127.0.0.1:8000/documents/${docId}`,
-    {
-      method: "DELETE",
-    }
-  );
-
-  if (!res.ok) throw new Error("Delete failed");
-
-  return res.json();
+  const res = await API.delete(`/documents/${docId}`);
+  return res.data;
 };
-

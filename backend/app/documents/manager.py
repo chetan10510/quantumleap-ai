@@ -13,14 +13,15 @@ from app.rag.retrieve import (
 from app.rag.embed import embed_texts
 
 
-STORAGE_DIR = "storage/documents"
-
-
 # =====================================================
-# LIST DOCUMENTS
+# LIST DOCUMENTS (PER USER)
 # =====================================================
-def list_documents():
-    metadata = load_metadata()
+def list_documents(vector_path: str):
+    """
+    Returns unique documents for a user workspace.
+    """
+
+    metadata = load_metadata(vector_path)
 
     docs = []
     seen = set()
@@ -40,11 +41,11 @@ def list_documents():
 
 
 # =====================================================
-# DELETE DOCUMENT
+# DELETE DOCUMENT (PER USER)
 # =====================================================
-def delete_document(doc_id: str):
+def delete_document(doc_id: str, documents_path: str, vector_path: str):
 
-    metadata = load_metadata()
+    metadata = load_metadata(vector_path)
 
     print("Deleting doc_id:", doc_id)
 
@@ -54,12 +55,20 @@ def delete_document(doc_id: str):
         if m.get("doc_id") != doc_id
     ]
 
-    # nothing removed → document not found
+    # nothing removed
     if len(remaining) == len(metadata):
         print("Document not found in metadata")
         return False
 
-    # -------- rebuild FAISS index ----------
+    # ---------- DELETE FILE FROM STORAGE ----------
+    for file in os.listdir(documents_path):
+        if file.startswith(doc_id):
+            try:
+                os.remove(os.path.join(documents_path, file))
+            except Exception:
+                pass
+
+    # ---------- REBUILD FAISS INDEX ----------
     if remaining:
         texts = [m["text"] for m in remaining]
 
@@ -71,15 +80,15 @@ def delete_document(doc_id: str):
         faiss.normalize_L2(vectors)
         index.add(vectors.astype("float32"))
 
-        save_index(index)
+        save_index(index, vector_path)
     else:
-        # create empty index
+        # empty index fallback
         dimension = 384
         index = faiss.IndexFlatL2(dimension)
-        save_index(index)
+        save_index(index, vector_path)
 
-    # save cleaned metadata
-    save_metadata(remaining)
+    # ---------- SAVE CLEAN METADATA ----------
+    save_metadata(remaining, vector_path)
 
     print("Document deleted successfully")
 
@@ -87,19 +96,32 @@ def delete_document(doc_id: str):
 
 
 # =====================================================
-# SAVE DOCUMENT (UPLOAD PIPELINE)
+# SAVE DOCUMENT (UPLOAD PIPELINE — PER USER)
 # =====================================================
-def save_document(upload_file):
+async def save_document(
+    upload_file,
+    documents_path: str,
+    vector_path: str,
+):
+    """
+    Full ingestion pipeline:
+    save file -> parse -> chunk -> embed -> store vectors
+    """
 
-    os.makedirs(STORAGE_DIR, exist_ok=True)
+    os.makedirs(documents_path, exist_ok=True)
+    os.makedirs(vector_path, exist_ok=True)
 
     doc_id = str(uuid.uuid4())
     filename = upload_file.filename
-    filepath = os.path.join(STORAGE_DIR, f"{doc_id}_{filename}")
+
+    filepath = os.path.join(
+        documents_path,
+        f"{doc_id}_{filename}"
+    )
 
     # ---------- SAVE FILE ----------
     with open(filepath, "wb") as buffer:
-        buffer.write(upload_file.file.read())
+        buffer.write(await upload_file.read())
 
     # ---------- EXTRACT TEXT ----------
     extracted_text = parse_file(filepath)
@@ -116,22 +138,22 @@ def save_document(upload_file):
     # ---------- EMBEDDINGS ----------
     vectors = embed_texts(chunks)
 
-    # metadata per chunk (THIS is your only metadata system now)
+    # metadata per chunk
     metadatas = [
         {
             "document": filename,
             "text": chunk,
-            "doc_id": doc_id
+            "doc_id": doc_id,
         }
         for chunk in chunks
     ]
 
     # ---------- STORE IN VECTOR DB ----------
-    add_embeddings(vectors, metadatas)
-
-    # IMPORTANT:
-    # NO extra metadata saving anymore.
-    # vector_db/metadata.json is already updated.
+    add_embeddings(
+        vectors,
+        metadatas,
+        vector_path=vector_path
+    )
 
     return {
         "id": doc_id,
