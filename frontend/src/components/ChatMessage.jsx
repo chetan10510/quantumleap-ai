@@ -2,17 +2,26 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
 /* =====================================================
-   EVIDENCE SENTENCE HIGHLIGHTING (Aggroso AI Style)
+   EVIDENCE SENTENCE HIGHLIGHTING
 ===================================================== */
 
 function highlightEvidenceSentence(snippet, answer) {
-  if (!answer || !snippet) return snippet || "";
+  // SAFETY GUARDS
+  if (
+    !snippet ||
+    typeof snippet !== "string" ||
+    snippet.trim().length === 0
+  ) {
+    return "No evidence text available.";
+  }
 
-  // Split snippet into sentences
+  if (!answer) return snippet;
+
+  // Split into sentences safely
   const sentences =
     snippet.match(/[^.!?]+[.!?]+/g) || [snippet];
 
-  // Extract meaningful words from answer
+  // Extract keywords from answer
   const keywords = answer
     .toLowerCase()
     .replace(/[^\w\s]/g, "")
@@ -36,8 +45,10 @@ function highlightEvidenceSentence(snippet, answer) {
     }
   });
 
+  // If nothing matched → return original snippet
   if (!bestSentence) return snippet;
 
+  // Highlight matched sentence
   return snippet.replace(
     bestSentence,
     `<mark class="bg-yellow-200 px-1 rounded font-medium">
@@ -105,7 +116,7 @@ export default function ChatMessage({ msg }) {
             {/* ================= AI ANSWER ================= */}
             <div className="prose prose-sm max-w-none text-slate-800">
               <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                {msg.content}
+                {msg.content || ""}
               </ReactMarkdown>
             </div>
 
@@ -140,9 +151,20 @@ export default function ChatMessage({ msg }) {
 
                 <div className="space-y-3">
                   {msg.sources.map((s, i) => {
-                    //  IMPORTANT FIX
+
+                    // ✅ Normalize backend fields
                     const snippet =
-                      s.text || s.snippet || "";
+                      typeof s.text === "string" && s.text.trim()
+                        ? s.text
+                        : typeof s.snippet === "string"
+                        ? s.snippet
+                        : "No evidence text returned from backend.";
+
+                    const highlighted =
+                      highlightEvidenceSentence(
+                        snippet,
+                        msg.content
+                      );
 
                     return (
                       <div
@@ -158,7 +180,7 @@ export default function ChatMessage({ msg }) {
                       >
                         {/* Document name */}
                         <div className="text-sm font-semibold text-indigo-700">
-                          {s.document}
+                          {s.document || "Unknown Document"}
                         </div>
 
                         {/* Evidence label */}
@@ -166,18 +188,17 @@ export default function ChatMessage({ msg }) {
                           Evidence used for answer
                         </div>
 
-                        {/* Highlighted snippet */}
+                        {/* Evidence snippet */}
                         <div
                           className="
                             text-sm text-slate-700
                             bg-white border rounded-lg
                             p-3 leading-relaxed
+                            whitespace-pre-wrap
                           "
                           dangerouslySetInnerHTML={{
-                            __html: highlightEvidenceSentence(
-                              snippet,
-                              msg.content
-                            ),
+                            __html:
+                              highlighted || snippet,
                           }}
                         />
                       </div>
