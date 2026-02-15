@@ -1,6 +1,7 @@
 import os
 import faiss
 import uuid
+import numpy as np
 
 from app.documents.parser import parse_file
 from app.utils.chunking import chunk_text
@@ -8,6 +9,7 @@ from app.rag.retrieve import (
     load_metadata,
     save_metadata,
     save_index,
+    load_index,
     add_embeddings,
 )
 from app.rag.embed import embed_texts
@@ -18,7 +20,7 @@ from app.rag.embed import embed_texts
 # =====================================================
 def list_documents(vector_path: str):
     """
-    Returns unique documents for a user workspace.
+    Returns unique documents uploaded by this user.
     """
 
     metadata = load_metadata(vector_path)
@@ -41,15 +43,19 @@ def list_documents(vector_path: str):
 
 
 # =====================================================
-# DELETE DOCUMENT (PER USER)
+# DELETE DOCUMENT (FAST VERSION — NO RE-EMBEDDING)
 # =====================================================
 def delete_document(doc_id: str, documents_path: str, vector_path: str):
+    """
+    Deletes a document and rebuilds FAISS index
+    WITHOUT recomputing embeddings.
+    """
 
     metadata = load_metadata(vector_path)
 
     print("Deleting doc_id:", doc_id)
 
-    # remove all chunks belonging to document
+    # remove chunks belonging to this document
     remaining = [
         m for m in metadata
         if m.get("doc_id") != doc_id
@@ -57,35 +63,54 @@ def delete_document(doc_id: str, documents_path: str, vector_path: str):
 
     # nothing removed
     if len(remaining) == len(metadata):
-        print("Document not found in metadata")
+        print("Document not found")
         return False
 
     # ---------- DELETE FILE FROM STORAGE ----------
-    for file in os.listdir(documents_path):
-        if file.startswith(doc_id):
-            try:
-                os.remove(os.path.join(documents_path, file))
-            except Exception:
-                pass
+    if os.path.exists(documents_path):
+        for file in os.listdir(documents_path):
+            if file.startswith(doc_id):
+                try:
+                    os.remove(os.path.join(documents_path, file))
+                except Exception:
+                    pass
 
-    # ---------- REBUILD FAISS INDEX ----------
-    if remaining:
-        texts = [m["text"] for m in remaining]
+    # ---------- FAST FAISS REBUILD ----------
+    try:
+        old_index = load_index(vector_path)
 
-        vectors = embed_texts(texts)
+        dimension = old_index.d
+        new_index = faiss.IndexFlatL2(dimension)
 
-        dimension = vectors.shape[1]
-        index = faiss.IndexFlatL2(dimension)
+        if remaining and old_index.ntotal > 0:
 
-        faiss.normalize_L2(vectors)
-        index.add(vectors.astype("float32"))
+            # get all stored vectors
+            all_vectors = old_index.reconstruct_n(
+                0, old_index.ntotal
+            )
 
-        save_index(index, vector_path)
-    else:
-        # empty index fallback
+            # keep vectors NOT belonging to deleted doc
+            keep_ids = [
+                i for i, m in enumerate(metadata)
+                if m.get("doc_id") != doc_id
+            ]
+
+            filtered_vectors = all_vectors[keep_ids]
+
+            if len(filtered_vectors) > 0:
+                new_index.add(
+                    np.array(filtered_vectors).astype("float32")
+                )
+
+        save_index(new_index, vector_path)
+
+    except Exception as e:
+        print("Index rebuild fallback:", e)
+
+        # fallback empty index
         dimension = 384
-        index = faiss.IndexFlatL2(dimension)
-        save_index(index, vector_path)
+        new_index = faiss.IndexFlatL2(dimension)
+        save_index(new_index, vector_path)
 
     # ---------- SAVE CLEAN METADATA ----------
     save_metadata(remaining, vector_path)
@@ -105,7 +130,7 @@ async def save_document(
 ):
     """
     Full ingestion pipeline:
-    save file -> parse -> chunk -> embed -> store vectors
+    save -> parse -> chunk -> embed -> store vectors
     """
 
     os.makedirs(documents_path, exist_ok=True)
@@ -127,13 +152,13 @@ async def save_document(
     extracted_text = parse_file(filepath)
 
     if not extracted_text or not extracted_text.strip():
-        raise ValueError("No readable text found in document")
+        raise ValueError("No readable text found")
 
     # ---------- CHUNK TEXT ----------
     chunks = chunk_text(extracted_text)
 
     if not chunks:
-        raise ValueError("Document produced no valid chunks")
+        raise ValueError("No valid chunks produced")
 
     # ---------- EMBEDDINGS ----------
     vectors = embed_texts(chunks)
