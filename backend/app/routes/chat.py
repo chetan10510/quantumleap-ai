@@ -10,12 +10,12 @@ from app.utils.user import get_user_id
 router = APIRouter(prefix="/chat", tags=["Chat"])
 
 
-# ---------------- REQUEST MODEL ----------------
+# ================= REQUEST MODEL =================
 class ChatRequest(BaseModel):
     message: str
 
 
-# ---------------- CHAT ENDPOINT ----------------
+# ================= CHAT ENDPOINT =================
 @router.post("/")
 async def chat(data: ChatRequest, request: Request):
 
@@ -29,84 +29,85 @@ async def chat(data: ChatRequest, request: Request):
         # ---------- EMBED QUERY ----------
         query_vector = embed_texts([message])
 
-        # ---------- RETRIEVE ----------
+        # ---------- RETRIEVE DOCUMENT CHUNKS ----------
         results = search(
             query_vector,
             vector_path=vector_path,
-            k=3
+            k=5   # IMPORTANT: more context improves grounding
         )
 
-        # ---------- NO RESULTS ----------
         if not results:
             return {
-                "role": "assistant",
-                "content": "No relevant documents found.",
+                "answer": "No relevant documents found.",
                 "sources": [],
                 "confidence": 0.2
             }
 
         # ---------- BUILD CONTEXT ----------
-        context = "\n\n".join([r["text"] for r in results])
+        context_blocks = []
+        for i, r in enumerate(results):
+            context_blocks.append(
+                f"[Source {i+1}]\n{r['text']}"
+            )
 
-        # ---------- GROQ ----------
-        api_key = os.getenv("GROQ_API_KEY")
-        model = os.getenv("MODEL_NAME", "llama-3.1-8b-instant")
+        context = "\n\n".join(context_blocks)
 
-        if not api_key:
+        # ---------- ENV ----------
+        GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+        MODEL_NAME = os.getenv("MODEL_NAME", "llama-3.1-8b-instant")
+
+        if not GROQ_API_KEY:
             raise Exception("GROQ_API_KEY missing")
 
-        client = Groq(api_key=api_key)
+        client = Groq(api_key=GROQ_API_KEY)
 
+        # ================= BETTER RAG PROMPT =================
         completion = client.chat.completions.create(
-            model=model,
+            model=MODEL_NAME,
+            temperature=0.2,
             messages=[
                 {
                     "role": "system",
-                    "content": (
-                        "Answer ONLY using the provided document context. "
-                        "If answer not present, say it is not mentioned."
-                    ),
+                    "content": """
+You are a document analysis assistant.
+
+Rules:
+- Answer using ONLY the provided document excerpts.
+- Extract information directly from the text.
+- If information is partially present, infer carefully.
+- NEVER say "I cannot find" unless context truly lacks information.
+- Give concise factual answers.
+"""
                 },
                 {
                     "role": "user",
                     "content": f"""
-Context:
+DOCUMENT EXCERPTS:
 {context}
 
-Question:
+QUESTION:
 {message}
+
+Answer using the excerpts above.
 """
                 }
             ],
-            temperature=0.2,
         )
 
         answer = completion.choices[0].message.content.strip()
 
-        # ---------- FORMAT SOURCES ----------
-        formatted_sources = [
-            {
-                "document": r.get("document", "Unknown"),
-                "text": r.get("text", ""),
-                "score": float(r.get("score", 0))
-            }
-            for r in results
-        ]
+        # ---------- SIMPLE CONFIDENCE HEURISTIC ----------
+        confidence = min(0.9, 0.4 + (len(results) * 0.1))
 
-        # ---------- CONFIDENCE ----------
-        avg_score = sum(s["score"] for s in formatted_sources) / len(formatted_sources)
-        confidence = max(0.3, min(0.9, avg_score))
-
-        # ---------- FINAL RESPONSE ----------
         return {
-            "role": "assistant",
-            "content": answer,
-            "sources": formatted_sources,
+            "answer": answer,
+            "sources": results,
             "confidence": confidence
         }
 
     except Exception as e:
         print("CHAT ERROR:", str(e))
+
         raise HTTPException(
             status_code=500,
             detail=f"Chat failed: {str(e)}"
