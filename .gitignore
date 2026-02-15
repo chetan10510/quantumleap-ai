@@ -2,7 +2,6 @@
 # ENV & SECRETS (CRITICAL)
 
 backend\.env.example
-!.env.example
 
 
 # PYTHON (BACKEND)
