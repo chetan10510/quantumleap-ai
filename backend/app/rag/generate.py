@@ -3,7 +3,8 @@ from groq import Groq
 from dotenv import load_dotenv
 
 load_dotenv()
-
+print("GROQ:", os.getenv("GROQ_API_KEY")[:10])
+print("GROQ KEY EXISTS:", bool(os.getenv("GROQ_API_KEY")))
 client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
 
