@@ -4,7 +4,7 @@ import axios from "axios";
   Backend URL
 */
 const API = axios.create({
-  baseURL: "https://aggroso-backend.onrender.com",
+  baseURL: "https://aggroso-ai-backend-production.up.railway.app",
 });
 
 /*
