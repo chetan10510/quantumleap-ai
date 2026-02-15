@@ -1,60 +1,50 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Request, HTTPException
 from pydantic import BaseModel
 
 from app.rag.embed import embed_texts
-from app.rag.retrieve import search, load_metadata
+from app.rag.retrieve import search
 from app.rag.generate import generate_answer
+from app.utils.user import get_user_id
 
 router = APIRouter(prefix="/chat", tags=["Chat"])
 
 
+# ---------------- REQUEST MODEL ----------------
 class ChatRequest(BaseModel):
     message: str
 
+
+# ---------------- CHAT ENDPOINT ----------------
 @router.post("/")
-def chat(req: ChatRequest):
+async def chat(data: ChatRequest, request: Request):
 
-    if not req.message.strip():
-        return {
-            "answer": "Please enter a question.",
-            "sources": [],
-            "confidence": 0
-        }
+    if not data.message.strip():
+        raise HTTPException(status_code=400, detail="Empty message")
 
-    query_vector = embed_texts([req.message])
-    results = search(query_vector, k=3)
+    # ✅ identify user workspace
+    user_id = get_user_id(request)
+    vector_path = f"storage/vector_db/{user_id}"
+
+    # ---------- EMBED QUERY ----------
+    query_vector = embed_texts([data.message])
+
+    # ✅ FIX: pass vector_path
+    results = search(
+        query_vector,
+        k=3,
+        vector_path=vector_path
+    )
 
     if not results:
         return {
-            "answer": "No documents uploaded or no relevant information found.",
-            "sources": [],
-            "confidence": 0
+            "answer": "No relevant documents found.",
+            "sources": []
         }
 
-    contexts = [r["text"] for r in results]
-
-    answer = generate_answer(req.message, contexts)
-
-    # ---------- CONFIDENCE ----------
-# Convert FAISS L2 distance → confidence score
-    avg_distance = sum(r["score"] for r in results) / len(results)
-
-    confidence = 1 / (1 + avg_distance)
-    confidence = round(confidence, 2)
-
-
-    formatted_sources = [
-        {
-            "document": r["document"],
-            "snippet": r["text"].strip(),
-            "doc_id": r["doc_id"],
-            "score": r["score"]
-        }
-        for r in results
-    ]
+    # ---------- GENERATE ANSWER ----------
+    answer = generate_answer(data.message, results)
 
     return {
         "answer": answer,
-        "sources": formatted_sources,
-        "confidence": round(confidence, 2)
+        "sources": results
     }
