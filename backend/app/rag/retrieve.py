@@ -3,69 +3,112 @@ import numpy as np
 import os
 import json
 
-VECTOR_PATH = "storage/vector_db/index.faiss"
-META_PATH = "storage/vector_db/metadata.json"
-
-dimension = 384  # embedding size for MiniLM
+# embedding dimension (MiniLM)
+DIMENSION = 384
 
 
-def load_or_create_index():
-    if os.path.exists(VECTOR_PATH):
-        return faiss.read_index(VECTOR_PATH)
-
-    return faiss.IndexFlatL2(dimension)
-
-
-def save_index(index):
-    faiss.write_index(index, VECTOR_PATH)
+# =====================================================
+# PATH HELPERS (PER USER WORKSPACE)
+# =====================================================
+def get_index_path(vector_path: str):
+    return os.path.join(vector_path, "index.faiss")
 
 
-def load_metadata():
-    if not os.path.exists(META_PATH):
+def get_meta_path(vector_path: str):
+    return os.path.join(vector_path, "metadata.json")
+
+
+# =====================================================
+# INDEX HANDLING
+# =====================================================
+def load_index(vector_path: str):
+    """
+    Load FAISS index if exists.
+    Otherwise create empty index.
+    """
+
+    os.makedirs(vector_path, exist_ok=True)
+    index_path = get_index_path(vector_path)
+
+    if os.path.exists(index_path):
+        return faiss.read_index(index_path)
+
+    return faiss.IndexFlatL2(DIMENSION)
+
+
+def save_index(index, vector_path: str):
+    os.makedirs(vector_path, exist_ok=True)
+    faiss.write_index(index, get_index_path(vector_path))
+
+
+# =====================================================
+# METADATA HANDLING
+# =====================================================
+def load_metadata(vector_path: str):
+    meta_path = get_meta_path(vector_path)
+
+    if not os.path.exists(meta_path):
         return []
 
-    with open(META_PATH, "r") as f:
+    with open(meta_path, "r", encoding="utf-8") as f:
         return json.load(f)
 
 
-def save_metadata(data):
-    with open(META_PATH, "w") as f:
-        json.dump(data, f, indent=2)
+def save_metadata(data, vector_path: str):
+    os.makedirs(vector_path, exist_ok=True)
+
+    with open(get_meta_path(vector_path), "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2, ensure_ascii=False)
 
 
-def add_embeddings(vectors, metadatas):
-    index = load_or_create_index()
-    metadata_store = load_metadata()
+# =====================================================
+# ADD EMBEDDINGS
+# =====================================================
+def add_embeddings(vectors, metadatas, vector_path: str):
+    """
+    Adds vectors + metadata into FAISS.
+    """
 
+    index = load_index(vector_path)
+    metadata_store = load_metadata(vector_path)
+
+    # cosine similarity normalization
     faiss.normalize_L2(vectors)
 
     index.add(vectors.astype("float32"))
     metadata_store.extend(metadatas)
 
-    save_index(index)
-    save_metadata(metadata_store)
+    save_index(index, vector_path)
+    save_metadata(metadata_store, vector_path)
 
 
+# =====================================================
+# SEARCH
+# =====================================================
+def search(query_vector, vector_path: str, k: int = 3):
+    """
+    Semantic search over user's workspace.
+    """
 
-def search(query_vector, k=3):
-    index = load_or_create_index()
-    metadata_store = load_metadata()
+    index = load_index(vector_path)
+    metadata_store = load_metadata(vector_path)
 
     if index.ntotal == 0:
         return []
 
-    # normalize for cosine similarity
+    # cosine similarity
     faiss.normalize_L2(query_vector)
 
-    D, I = index.search(query_vector.astype("float32"), k)
+    distances, indices = index.search(
+        query_vector.astype("float32"), k
+    )
 
     results = []
 
-    for score, idx in zip(D[0], I[0]):
-        if idx < len(metadata_store):
+    for score, idx in zip(distances[0], indices[0]):
+        if 0 <= idx < len(metadata_store):
             item = metadata_store[idx].copy()
             item["score"] = float(score)
             results.append(item)
 
     return results
-
