@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Request, HTTPException
+from fastapi import APIRouter, Request
 from pydantic import BaseModel
 
 from app.rag.embed import embed_texts
@@ -9,42 +9,47 @@ from app.utils.user import get_user_id
 router = APIRouter(prefix="/chat", tags=["Chat"])
 
 
-# ---------------- REQUEST MODEL ----------------
 class ChatRequest(BaseModel):
     message: str
 
 
-# ---------------- CHAT ENDPOINT ----------------
 @router.post("/")
-async def chat(data: ChatRequest, request: Request):
+async def chat(body: ChatRequest, request: Request):
 
-    if not data.message.strip():
-        raise HTTPException(status_code=400, detail="Empty message")
+    question = body.message.strip()
 
-    # ✅ identify user workspace
+    if not question:
+        return {
+            "answer": "Empty question.",
+            "sources": [],
+            "confidence": "Low"
+        }
+
+    # USER WORKSPACE
     user_id = get_user_id(request)
     vector_path = f"storage/vector_db/{user_id}"
 
-    # ---------- EMBED QUERY ----------
-    query_vector = embed_texts([data.message])
+    # embed query
+    query_vector = embed_texts([question])
 
-    # ✅ FIX: pass vector_path
-    results = search(
-        query_vector,
-        k=3,
-        vector_path=vector_path
-    )
+    # NEW SEARCH SIGNATURE
+    results = search(query_vector, vector_path, k=3)
 
     if not results:
         return {
             "answer": "No relevant documents found.",
-            "sources": []
+            "sources": [],
+            "confidence": "Low"
         }
 
-    # ---------- GENERATE ANSWER ----------
-    answer = generate_answer(data.message, results)
+    # build context
+    context = "\n\n".join([r["text"] for r in results])
+
+    # generate LLM answer
+    answer = generate_answer(context, question)
 
     return {
         "answer": answer,
-        "sources": results
+        "sources": results,
+        "confidence": "Medium"
     }

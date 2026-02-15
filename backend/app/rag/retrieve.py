@@ -85,30 +85,25 @@ def add_embeddings(vectors, metadatas, vector_path: str):
 # =====================================================
 # SEARCH
 # =====================================================
-def search(query_vector, vector_path: str, k: int = 3):
-    """
-    Semantic search over user's workspace.
-    """
+def search(query_vector, vector_path: str, k=3):
 
-    index = load_index(vector_path)
+    index = load_or_create_index(vector_path)
     metadata_store = load_metadata(vector_path)
 
     if index.ntotal == 0:
         return []
 
-    # cosine similarity
     faiss.normalize_L2(query_vector)
 
-    distances, indices = index.search(
-        query_vector.astype("float32"), k
-    )
+    D, I = index.search(query_vector.astype("float32"), k)
 
     results = []
 
-    for score, idx in zip(distances[0], indices[0]):
-        if 0 <= idx < len(metadata_store):
+    for score, idx in zip(D[0], I[0]):
+        if idx < len(metadata_store):
             item = metadata_store[idx].copy()
             item["score"] = float(score)
             results.append(item)
 
     return results
+
