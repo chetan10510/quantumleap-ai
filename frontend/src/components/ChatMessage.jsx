@@ -3,10 +3,10 @@ import remarkGfm from "remark-gfm";
 
 /* =====================================================
    EVIDENCE SENTENCE HIGHLIGHTING (Aggroso AI Style)
-   ===================================================== */
+===================================================== */
 
 function highlightEvidenceSentence(snippet, answer) {
-  if (!answer || !snippet) return snippet;
+  if (!answer || !snippet) return snippet || "";
 
   // Split snippet into sentences
   const sentences =
@@ -22,7 +22,6 @@ function highlightEvidenceSentence(snippet, answer) {
   let bestSentence = "";
   let bestScore = 0;
 
-  // Find sentence most aligned with answer meaning
   sentences.forEach((sentence) => {
     const lower = sentence.toLowerCase();
 
@@ -37,10 +36,8 @@ function highlightEvidenceSentence(snippet, answer) {
     }
   });
 
-  // If nothing matched, return original snippet
   if (!bestSentence) return snippet;
 
-  // Highlight entire evidence sentence
   return snippet.replace(
     bestSentence,
     `<mark class="bg-yellow-200 px-1 rounded font-medium">
@@ -50,36 +47,33 @@ function highlightEvidenceSentence(snippet, answer) {
 }
 
 /* =====================================================
-   CONFIDENCE LABEL (Product UX — no percentages)
-   ===================================================== */
+   CONFIDENCE LABEL
+===================================================== */
 
 function confidenceLabel(score) {
   if (score >= 0.7) {
     return {
       text: "High",
-      style:
-        "text-green-700 bg-green-50 border-green-200",
+      style: "text-green-700 bg-green-50 border-green-200",
     };
   }
 
   if (score >= 0.4) {
     return {
       text: "Medium",
-      style:
-        "text-yellow-700 bg-yellow-50 border-yellow-200",
+      style: "text-yellow-700 bg-yellow-50 border-yellow-200",
     };
   }
 
   return {
     text: "Low",
-    style:
-      "text-red-700 bg-red-50 border-red-200",
+    style: "text-red-700 bg-red-50 border-red-200",
   };
 }
 
 /* =====================================================
    COMPONENT
-   ===================================================== */
+===================================================== */
 
 export default function ChatMessage({ msg }) {
   const isUser = msg.role === "user";
@@ -126,7 +120,6 @@ export default function ChatMessage({ msg }) {
                   </span>
 
                   <span
-                    title="Confidence reflects how strongly the answer is supported by retrieved document evidence."
                     className={`
                       px-3 py-1 rounded-full border font-semibold
                       ${conf.style}
@@ -146,44 +139,50 @@ export default function ChatMessage({ msg }) {
                 </div>
 
                 <div className="space-y-3">
-                  {msg.sources.map((s, i) => (
-                    <div
-                      key={i}
-                      className="
-                        bg-slate-50
-                        border border-slate-200
-                        rounded-xl
-                        p-3
-                        hover:shadow-md
-                        transition-all
-                      "
-                    >
-                      {/* Document name */}
-                      <div className="text-sm font-semibold text-indigo-700">
-                        {s.document}
-                      </div>
+                  {msg.sources.map((s, i) => {
+                    //  IMPORTANT FIX
+                    const snippet =
+                      s.text || s.snippet || "";
 
-                      {/* Evidence label */}
-                      <div className="text-xs text-indigo-500 mt-2 mb-1 font-medium">
-                        Evidence used for answer
-                      </div>
-
-                      {/* Highlighted snippet */}
+                    return (
                       <div
+                        key={i}
                         className="
-                          text-sm text-slate-700
-                          bg-white border rounded-lg
-                          p-3 leading-relaxed
+                          bg-slate-50
+                          border border-slate-200
+                          rounded-xl
+                          p-3
+                          hover:shadow-md
+                          transition-all
                         "
-                        dangerouslySetInnerHTML={{
-                          __html: highlightEvidenceSentence(
-                            s.snippet,
-                            msg.content
-                          ),
-                        }}
-                      />
-                    </div>
-                  ))}
+                      >
+                        {/* Document name */}
+                        <div className="text-sm font-semibold text-indigo-700">
+                          {s.document}
+                        </div>
+
+                        {/* Evidence label */}
+                        <div className="text-xs text-indigo-500 mt-2 mb-1 font-medium">
+                          Evidence used for answer
+                        </div>
+
+                        {/* Highlighted snippet */}
+                        <div
+                          className="
+                            text-sm text-slate-700
+                            bg-white border rounded-lg
+                            p-3 leading-relaxed
+                          "
+                          dangerouslySetInnerHTML={{
+                            __html: highlightEvidenceSentence(
+                              snippet,
+                              msg.content
+                            ),
+                          }}
+                        />
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             )}
