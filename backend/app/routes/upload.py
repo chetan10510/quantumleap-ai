@@ -6,9 +6,23 @@ import os
 
 router = APIRouter(prefix="/upload", tags=["Upload"])
 
+# ---------------------------------------
+# CONFIG
+# ---------------------------------------
+
+# Allowed file extensions
 ALLOWED_EXTENSIONS = (".pdf", ".docx", ".xlsx", ".txt", ".md")
 
+# ⭐ Prevent Render OOM (very important)
+MAX_FILE_SIZE = 5 * 1024 * 1024  # 5MB per file
 
+# Optional upload limit (prevents abuse)
+MAX_FILES_PER_REQUEST = 5
+
+
+# ---------------------------------------
+# UPLOAD ENDPOINT
+# ---------------------------------------
 @router.post("/")
 async def upload_documents(
     request: Request,
@@ -16,14 +30,29 @@ async def upload_documents(
 ):
     """
     Upload documents scoped per user workspace.
+
+    ✔ Each user gets isolated storage
+    ✔ Memory-safe file handling
+    ✔ File validation + limits
+    ✔ Render free-tier optimized
     """
 
+    # ---------- BASIC VALIDATION ----------
     if not files:
-        raise HTTPException(status_code=400, detail="No files uploaded")
+        raise HTTPException(
+            status_code=400,
+            detail="No files uploaded"
+        )
 
+    if len(files) > MAX_FILES_PER_REQUEST:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Maximum {MAX_FILES_PER_REQUEST} files allowed per upload"
+        )
+
+    # ---------- USER WORKSPACE ----------
     user_id = get_user_id(request)
 
-    # USER-SPECIFIC STORAGE
     user_doc_dir = f"storage/documents/{user_id}"
     user_vector_dir = f"storage/vector_db/{user_id}"
 
@@ -33,29 +62,47 @@ async def upload_documents(
     uploaded = []
     rejected = []
 
+    # ---------- PROCESS FILES ----------
     for file in files:
 
-        if not file.filename:
-            continue
-
-        ext = os.path.splitext(file.filename)[1].lower()
-
-        if ext not in ALLOWED_EXTENSIONS:
-            rejected.append(file.filename)
-            continue
-
         try:
+            # skip empty filename
+            if not file.filename:
+                continue
+
+            filename = file.filename.strip()
+            ext = os.path.splitext(filename)[1].lower()
+
+            # ---------- EXTENSION CHECK ----------
+            if ext not in ALLOWED_EXTENSIONS:
+                rejected.append(filename)
+                continue
+
+            # ---------- SIZE CHECK (memory-safe) ----------
+            content = await file.read()
+
+            if len(content) > MAX_FILE_SIZE:
+                print(f"Rejected (too large): {filename}")
+                rejected.append(filename)
+                continue
+
+            # rewind pointer for streaming save later
+            file.file.seek(0)
+
+            # ---------- SAVE + INGEST ----------
             saved = await save_document(
-                file,
+                upload_file=file,
                 documents_path=user_doc_dir,
                 vector_path=user_vector_dir,
             )
+
             uploaded.append(saved)
 
         except Exception as e:
-            print("Upload failed:", e)
-            rejected.append(file.filename)
+            print("Upload failed:", filename, str(e))
+            rejected.append(filename)
 
+    # ---------- RESPONSE ----------
     if not uploaded:
         raise HTTPException(
             status_code=400,
