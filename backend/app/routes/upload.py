@@ -96,7 +96,11 @@ async def upload_documents(
                 vector_path=user_vector_dir,
             )
 
-            uploaded.append(saved)
+            uploaded.append({
+                "doc_id": saved["id"],
+                "filename": saved["name"],
+            })
+
 
         except Exception as e:
             print("Upload failed:", filename, str(e))

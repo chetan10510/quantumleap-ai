@@ -1,56 +1,28 @@
 import axios from "axios";
 
-/*
-  Backend URL
-*/
 const API = axios.create({
   baseURL: "https://aggroso-ai-backend-production.up.railway.app",
 });
 
-/*
-  Create persistent device user id
-  Each browser = one workspace
-*/
-const getUserId = () => {
-  let id = localStorage.getItem("user_id");
-
-  if (!id) {
-    id = crypto.randomUUID();
-    localStorage.setItem("user_id", id);
-  }
-
-  return id;
-};
-
-/*
-  Automatically attach user id to every request
-*/
-API.interceptors.request.use((config) => {
-  config.headers["X-User-ID"] = getUserId();
-  return config;
-});
-
-/* ---------------- CHAT ---------------- */
+/* ---------- CHAT ---------- */
 export const sendMessage = async (message) => {
-  const res = await API.post("/chat/", {
-    message,
-  });
+  const res = await API.post("/chat/", { message });
   return res.data;
 };
 
-/* ---------------- DOCUMENTS ---------------- */
+/* ---------- DOCUMENTS ---------- */
 export const getDocuments = async () => {
   const res = await API.get("/documents/");
   return res.data;
 };
 
-/* ---------------- STATUS ---------------- */
+/* ---------- STATUS ---------- */
 export const getStatus = async () => {
   const res = await API.get("/status/");
   return res.data;
 };
 
-/* ---------------- UPLOAD ---------------- */
+/* ---------- UPLOAD ---------- */
 export const uploadFiles = async (files) => {
   const formData = new FormData();
 
@@ -58,17 +30,15 @@ export const uploadFiles = async (files) => {
     formData.append("files", file);
   }
 
-  const res = await API.post("/upload/", formData, {
-    headers: {
-      "Content-Type": "multipart/form-data",
-    },
-  });
+  const res = await API.post("/upload/", formData);
 
   return res.data;
 };
 
-/* ---------------- DELETE ---------------- */
+/* ---------- DELETE ---------- */
 export const deleteDocument = async (docId) => {
+  if (!docId) throw new Error("Invalid document id");
+
   const res = await API.delete(`/documents/${docId}`);
   return res.data;
 };

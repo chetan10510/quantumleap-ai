@@ -66,7 +66,14 @@ def delete_document(doc_id: str, documents_path: str, vector_path: str):
 # ===============================
 # SAVE DOCUMENT
 # ===============================
-async def save_document(upload_file, documents_path: str, vector_path: str):
+async def save_document(
+    upload_file,
+    documents_path: str,
+    vector_path: str,
+):
+    """
+    Fast ingestion pipeline (memory-safe streaming upload)
+    """
 
     os.makedirs(documents_path, exist_ok=True)
     os.makedirs(vector_path, exist_ok=True)
@@ -79,10 +86,12 @@ async def save_document(upload_file, documents_path: str, vector_path: str):
         f"{doc_id}_{filename}"
     )
 
-    # STREAM WRITE (NO RAM SPIKE)
+    # ===============================
+    # ✅ STREAM FILE WRITE (FAST FIX)
+    # ===============================
     with open(filepath, "wb") as buffer:
         while True:
-            chunk = await upload_file.read(1024 * 1024)
+            chunk = await upload_file.read(1024 * 1024)  # 1MB chunks
             if not chunk:
                 break
             buffer.write(chunk)
@@ -90,17 +99,14 @@ async def save_document(upload_file, documents_path: str, vector_path: str):
     # ---------- PARSE ----------
     extracted_text = parse_file(filepath)
 
-    if not extracted_text.strip():
-        raise ValueError("Empty document")
+    if not extracted_text or not extracted_text.strip():
+        raise ValueError("No readable text found")
 
     # ---------- CHUNK ----------
     chunks = chunk_text(extracted_text)
 
-    # HARD LIMIT (Render safety)
-    chunks = chunks[:200]
-
     if not chunks:
-        raise ValueError("No chunks")
+        raise ValueError("No valid chunks produced")
 
     # ---------- EMBED ----------
     vectors = embed_texts(chunks)
@@ -108,12 +114,13 @@ async def save_document(upload_file, documents_path: str, vector_path: str):
     metadatas = [
         {
             "document": filename,
-            "text": c,
+            "text": chunk,
             "doc_id": doc_id,
         }
-        for c in chunks
+        for chunk in chunks
     ]
 
+    # ---------- STORE ----------
     add_embeddings(
         vectors,
         metadatas,
@@ -124,4 +131,5 @@ async def save_document(upload_file, documents_path: str, vector_path: str):
         "id": doc_id,
         "name": filename,
         "chunks": len(chunks),
+        "text_length": len(extracted_text),
     }
