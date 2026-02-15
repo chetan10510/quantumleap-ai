@@ -10,7 +10,7 @@ uvicorn==0.29.0
 python-dotenv==1.0.1
 
 # --- Vector DB ---
-numpy==2.4.2
+numpy==1.26.4
 
 # --- Document Parsing ---
 python-multipart==0.0.9

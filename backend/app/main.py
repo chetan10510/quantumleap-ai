@@ -1,48 +1,34 @@
 import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.routes import chat, upload, documents, health
-from app.routes import keepalive
-app.include_router(keepalive.router)
 
-# Ensure storage folders exist
+from app.routes import chat, upload, documents, health
+
+#  create storage folders (Railway containers start empty)
 os.makedirs("storage/documents", exist_ok=True)
 os.makedirs("storage/vector_db", exist_ok=True)
 
+#  CREATE APP FIRST
 app = FastAPI(
     title="Private Knowledge Workspace API",
     version="1.0.0"
 )
 
-# -------------------------
-# CORS (Frontend connection)
-# -------------------------
+#  CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # later restrict to frontend URL
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# -------------------------
-# Root endpoint (Render check)
-# -------------------------
+#  ROOT
 @app.get("/")
 def root():
-    return {"status": "Aggroso AI backend running 🚀"}
+    return {"message": "Backend running "}
 
-# -------------------------
-# Explicit health endpoint
-# (important for Render)
-# -------------------------
-@app.get("/health")
-def health_check():
-    return {"status": "ok"}
-
-# -------------------------
-# Register API routers
-# -------------------------
+#  ROUTERS
 app.include_router(chat.router)
 app.include_router(upload.router)
 app.include_router(documents.router)
