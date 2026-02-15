@@ -78,15 +78,14 @@ def add_embeddings(vectors, metadatas, vector_path: str):
 # =====================================================
 # SEARCH
 # =====================================================
-
 def search(query_vector, vector_path: str, k=3):
-
     index = load_index(vector_path)
     metadata_store = load_metadata(vector_path)
 
     if index.ntotal == 0:
         return []
 
+    # cosine similarity
     faiss.normalize_L2(query_vector)
 
     D, I = index.search(query_vector.astype("float32"), k)
@@ -94,9 +93,17 @@ def search(query_vector, vector_path: str, k=3):
     results = []
 
     for score, idx in zip(D[0], I[0]):
-        if idx < len(metadata_store):
-            item = metadata_store[idx].copy()
-            item["score"] = float(score)
-            results.append(item)
+
+        if idx >= len(metadata_store):
+            continue
+
+        meta = metadata_store[idx]
+
+        results.append({
+            "document": meta["document"],
+            "doc_id": meta["doc_id"],
+            "text": meta["text"],        #  REQUIRED FOR HIGHLIGHT
+            "score": float(score),
+        })
 
     return results
