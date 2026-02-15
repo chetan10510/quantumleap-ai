@@ -25,8 +25,8 @@ async def chat(request: Request):
 
     #  IMPORTANT FIX — pass vector_path
     results = search(
-        query_vector=query_vector,
-        vector_path=vector_path,
+        query_vector,
+        vector_path=user_vector_dir,
         k=3
     )
 
