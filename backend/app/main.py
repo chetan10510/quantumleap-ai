@@ -1,8 +1,9 @@
 import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-
 from app.routes import chat, upload, documents, health
+from app.routes import keepalive
+app.include_router(keepalive.router)
 
 # Ensure storage folders exist
 os.makedirs("storage/documents", exist_ok=True)
