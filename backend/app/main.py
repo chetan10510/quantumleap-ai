@@ -3,7 +3,6 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.routes import chat, upload, documents, health
-from app.middleware.request_logger import RequestLoggingMiddleware
 
 # ---------------- STORAGE ----------------
 os.makedirs("storage/documents", exist_ok=True)
@@ -32,8 +31,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ---------------- LOGGING ----------------
-app.add_middleware(RequestLoggingMiddleware)
 
 # ---------------- ROOT ----------------
 @app.get("/")
