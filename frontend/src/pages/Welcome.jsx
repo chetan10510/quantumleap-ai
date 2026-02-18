@@ -22,7 +22,7 @@ export default function Welcome() {
           text-4xl font-semibold tracking-tight
           text-slate-900
         ">
-          Aggroso Private Knowledge Workspace
+          Quantumleap Private Knowledge Workspace
         </h1>
 
         <p className="mt-4 text-lg text-slate-600">
