@@ -22,6 +22,7 @@ app.add_middleware(
         "https://quantumleap-ai.vercel.app",  # your frontend URL
         "http://localhost:5173",
         "http://localhost:3000",
+        "https://quantamleap-1bnnp5lhw-chetan10510s-projects.vercel.app",
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -47,3 +48,5 @@ app.include_router(chat.router)
 app.include_router(upload.router)
 app.include_router(documents.router)
 app.include_router(health.router)
+
+
