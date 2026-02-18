@@ -93,6 +93,29 @@ Text is split into medium-sized overlapping chunks.
 * **Environment Security:** No hardcoded credentials; all API keys and model configurations are managed via environment variables.
 
 ---
+To maintain that professional, "senior-engineer" tone, I have integrated these links into a **Deployment & Repository** section. I’ve also included a brief technical note on the hosting choices, as this shows reviewers you understand infrastructure.
+
+Add this section right before the **Local Development Setup** in your README.md:
+
+---
+
+## Deployment & Repository
+
+The application is architected for cloud-native deployment with a clear separation between the presentation and logic layers.
+
+| Component | Status | URL |
+| --- | --- | --- |
+| **Frontend** | Live (Vercel) | [https://quantamleap-ai.vercel.app/](https://quantamleap-ai.vercel.app/) |
+| **Backend** | Live (Railway) | [https://quantamleap-ai-backend-production.up.railway.app/](https://quantamleap-ai-backend-production.up.railway.app/) |
+| **Source Code** | GitHub | [https://github.com/chetan10510/QuantumLeap-AI](https://www.google.com/search?q=https://github.com/chetan10510/QuantumLeap-AI) |
+
+### Deployment Infrastructure
+
+* **Frontend:** Hosted on **Vercel** for edge-network delivery and optimized React performance.
+* **Backend:** Deployed via **Railway**, utilizing a containerized environment to manage the FastAPI service and persistent local FAISS storage.
+* **CI/CD:** Automated deployment pipelines are triggered upon merging to the `main` branch, ensuring consistent delivery.
+
+---
 
 ## Local Development Setup
 
