@@ -47,7 +47,7 @@ export default function ChatInput({ onSend, loading }) {
                 : "bg-slate-50 border-slate-300 hover:border-slate-400"
             }
           `}
-          placeholder="Ask questions based on uploaded documents..."
+          placeholder="Ask QuantumLeap AI about your documents..."
           rows={2}
           value={text}
           disabled={loading}

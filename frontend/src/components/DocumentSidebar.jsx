@@ -61,10 +61,10 @@ export default function DocumentSidebar() {
       {/* HEADER */}
       <div>
         <h2 className="text-xl font-semibold">
-          Aggroso
+          QuantumLeap AI
         </h2>
         <p className="text-xs text-indigo-200">
-          Knowledge Workspace
+          Knowledge Automation
         </p>
       </div>
 

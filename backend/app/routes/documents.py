@@ -1,7 +1,10 @@
+import os
 from fastapi import APIRouter, Request, HTTPException
 from app.documents.manager import list_documents, delete_document
 from app.utils.user import get_user_id
-import os
+from app.core.logger import get_logger
+
+logger = get_logger("documents")
 
 router = APIRouter(prefix="/documents", tags=["Documents"])
 

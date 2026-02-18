@@ -60,7 +60,7 @@ export default function Home() {
           {/* LEFT SIDE */}
           <div>
             <h1 className="text-lg font-semibold text-slate-800">
-              Aggroso — Private Knowledge Workspace
+              QuantumLeap AI — Private Knowledge Workspace
             </h1>
 
             <p className="text-xs text-slate-500">
@@ -86,7 +86,7 @@ export default function Home() {
               `}
             >
               {hasDocuments
-                ? "Knowledge Active"
+                ? "Documents Uploaded"
                 : "No Documents Loaded"}
             </div>
 

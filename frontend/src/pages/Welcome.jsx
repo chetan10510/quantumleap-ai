@@ -110,7 +110,7 @@ export default function Welcome() {
 
       {/* FOOTER */}
       <p className="mt-10 text-xs text-slate-400">
-        AI-Driven Knowledge Intelligence · Built for Aggroso Evaluation
+        QuantumLeap — AI Knowledge Automation LLM-powered Knowledge Agent
       </p>
     </div>
   );

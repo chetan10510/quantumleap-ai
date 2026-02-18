@@ -1,8 +1,11 @@
+import os
 from fastapi import APIRouter, UploadFile, File, HTTPException, Request
 from typing import List
 from app.documents.manager import save_document
 from app.utils.user import get_user_id
-import os
+from app.core.logger import get_logger
+
+logger = get_logger("upload")
 
 router = APIRouter(prefix="/upload", tags=["Upload"])
 
@@ -103,7 +106,7 @@ async def upload_documents(
 
 
         except Exception as e:
-            print("Upload failed:", filename, str(e))
+            logger.error(f"Upload failed: {filename} | {str(e)}")
             rejected.append(filename)
 
     # ---------- RESPONSE ----------

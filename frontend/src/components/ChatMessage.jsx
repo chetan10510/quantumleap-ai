@@ -1,29 +1,30 @@
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
-/* =====================================================
-   SAFE TEXT NORMALIZER
-===================================================== */
+/* ================= SAFE TEXT ================= */
+
 function normalizeText(value) {
   if (!value) return "";
   if (typeof value !== "string") return String(value);
   return value.trim();
 }
 
-/* =====================================================
-   EVIDENCE SENTENCE HIGHLIGHTING
-===================================================== */
+/* ================= SAFE HIGHLIGHT =================
+   NO innerHTML → prevents XSS completely
+=================================================== */
+
 function highlightEvidenceSentence(snippet, answer) {
   snippet = normalizeText(snippet);
   answer = normalizeText(answer);
 
   if (!snippet) {
-    return `<span class="text-slate-400 italic">
-      No evidence text returned from backend
-    </span>`;
+    return (
+      <span className="text-slate-400 italic">
+        No evidence text returned from backend
+      </span>
+    );
   }
 
-  // split into sentences
   const sentences =
     snippet.match(/[^.!?]+[.!?]+/g) || [snippet];
 
@@ -52,17 +53,21 @@ function highlightEvidenceSentence(snippet, answer) {
 
   if (!bestSentence) return snippet;
 
-  return snippet.replace(
-    bestSentence,
-    `<mark class="bg-yellow-200 px-1 rounded font-medium">
-      ${bestSentence}
-     </mark>`
+  const parts = snippet.split(bestSentence);
+
+  return (
+    <>
+      {parts[0]}
+      <mark className="bg-yellow-200 px-1 rounded font-medium">
+        {bestSentence}
+      </mark>
+      {parts[1]}
+    </>
   );
 }
 
-/* =====================================================
-   CONFIDENCE LABEL
-===================================================== */
+/* ================= CONFIDENCE ================= */
+
 function confidenceLabel(score) {
   if (score === "High" || score >= 0.7)
     return {
@@ -82,9 +87,8 @@ function confidenceLabel(score) {
   };
 }
 
-/* =====================================================
-   COMPONENT
-===================================================== */
+/* ================= COMPONENT ================= */
+
 export default function ChatMessage({ msg }) {
   const isUser = msg.role === "user";
 
@@ -98,7 +102,6 @@ export default function ChatMessage({ msg }) {
             : "bg-white border border-slate-200"
         }`}
       >
-        {/* USER MESSAGE */}
         {isUser ? (
           <div className="whitespace-pre-wrap">
             {msg.content}
@@ -140,14 +143,12 @@ export default function ChatMessage({ msg }) {
 
                 <div className="space-y-3">
                   {msg.sources.map((s, i) => {
-                    /*  CRITICAL FIX */
                     const snippet =
                       typeof s.text === "string"
                         ? s.text
                         : typeof s.snippet === "string"
                         ? s.snippet
                         : "";
-
 
                     return (
                       <div
@@ -162,15 +163,12 @@ export default function ChatMessage({ msg }) {
                           Evidence used for answer
                         </div>
 
-                        <div
-                          className="text-sm text-slate-700 bg-white border rounded-lg p-3 leading-relaxed"
-                          dangerouslySetInnerHTML={{
-                            __html: highlightEvidenceSentence(
-                              snippet,
-                              msg.content
-                            ),
-                          }}
-                        />
+                        <div className="text-sm text-slate-700 bg-white border rounded-lg p-3 leading-relaxed">
+                          {highlightEvidenceSentence(
+                            snippet,
+                            msg.content
+                          )}
+                        </div>
                       </div>
                     );
                   })}
