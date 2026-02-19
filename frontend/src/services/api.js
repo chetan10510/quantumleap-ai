@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const API = axios.create({
-  baseURL: "https://quantumleap-ai-production.up.railway.app",
+  baseURL: "https://quantamleap-ai-backend-production.up.railway.app",
 });
 
 /* ---------- CHAT ---------- */
